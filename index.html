@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JeevanSetu • Smart Healthcare</title>
+  <meta name="description" content="SIH healthcare frontend prototype with doctor and patient dashboards.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+  <!-- LOGIN -->
+  <section id="loginView" class="app-view">
+    <div class="login-shell">
+      <div class="login-left">
+        <div class="brand">
+          <span class="brand-mark"><i class="bi bi-heart-pulse-fill"></i></span>
+          <span>Jeevan<span>Setu</span></span>
+        </div>
+
+        <div class="hero-copy">
+          <div class="eyebrow"><i class="bi bi-shield-check"></i> SIH HEALTHCARE PROTOTYPE</div>
+          <h1>One health record.<br><span>Connected care.</span></h1>
+          <p>Securely access your healthcare journey, connect with doctors and keep your medical information organized in one place.</p>
+        </div>
+
+        <div class="login-features">
+          <div><i class="bi bi-person-badge"></i><span><strong>Patient-first</strong><small>AI-assisted symptom intake</small></span></div>
+          <div><i class="bi bi-clipboard2-pulse"></i><span><strong>Doctor-ready</strong><small>Patient history at a glance</small></span></div>
+          <div><i class="bi bi-file-earmark-medical"></i><span><strong>Digital records</strong><small>Documents and consultations</small></span></div>
+        </div>
+
+        <div class="login-note"><i class="bi bi-info-circle"></i> Frontend demo • No real Aadhaar data is processed</div>
+      </div>
+
+      <div class="login-right">
+        <div class="login-card">
+          <div class="text-center mb-4">
+            <div class="mini-logo"><i class="bi bi-heart-pulse-fill"></i></div>
+            <h2>Welcome back</h2>
+            <p>Choose how you want to continue</p>
+          </div>
+
+          <div class="role-switch mb-4">
+            <button class="role-btn active" data-role="doctor"><i class="bi bi-person-badge"></i><span>Doctor</span><small>Clinical dashboard</small></button>
+            <button class="role-btn" data-role="patient"><i class="bi bi-person"></i><span>Patient</span><small>My health space</small></button>
+          </div>
+
+          <div class="demo-info">
+            <i class="bi bi-stars"></i>
+            <div><strong>Demo access</strong><br><span>Use any 12-digit number below. This is only a frontend simulation.</span></div>
+          </div>
+
+          <label class="form-label mt-4">Aadhaar number</label>
+          <div class="input-group input-group-lg">
+            <span class="input-group-text"><i class="bi bi-fingerprint"></i></span>
+            <input id="aadhaarInput" class="form-control" maxlength="12" inputmode="numeric" placeholder="XXXX XXXX XXXX">
+          </div>
+          <div class="form-text">Your number is not sent anywhere in this prototype.</div>
+
+          <button id="loginBtn" class="btn btn-primary btn-lg w-100 mt-4">
+            Continue securely <i class="bi bi-arrow-right ms-2"></i>
+          </button>
+
+          <div class="secure-row mt-4">
+            <span><i class="bi bi-shield-lock-fill"></i> Secure demo</span>
+            <span><i class="bi bi-lock-fill"></i> Privacy focused</span>
+            <span><i class="bi bi-phone-fill"></i> Responsive</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <section id="appView" class="app-view d-none">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-mark"><i class="bi bi-heart-pulse-fill"></i></span>
+        <div><strong>JeevanSetu</strong><small>Smart Healthcare</small></div>
+      </div>
+      <div class="role-pill" id="sidebarRole"><i class="bi bi-person-badge"></i> Doctor portal</div>
+      <nav id="sidebarNav"></nav>
+      <div class="sidebar-bottom">
+        <div class="demo-user"><div class="avatar avatar-sm">RK</div><div><strong id="sidebarUser">Demo User</strong><small>Verified profile</small></div></div>
+        <button id="logoutBtn" class="btn btn-light w-100"><i class="bi bi-box-arrow-left me-2"></i>Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div>
+          <button id="mobileMenuBtn" class="icon-btn d-lg-none me-2"><i class="bi bi-list"></i></button>
+          <span class="topbar-title" id="pageTitle">Dashboard</span>
+        </div>
+        <div class="top-actions">
+          <button class="icon-btn"><i class="bi bi-bell"></i><span class="notification-dot"></span></button>
+          <div class="top-profile"><div class="avatar" id="topAvatar">RK</div><div class="d-none d-md-block"><strong id="topName">Ravi Kumar</strong><small id="topRole">Doctor</small></div></div>
+        </div>
+      </header>
+
+      <div id="doctorPages" class="page-stack">
+        <!-- DOCTOR DASHBOARD -->
+        <div id="doctorDashboard" class="page active-page">
+          <div class="page-heading">
+            <div><div class="eyebrow">CLINICAL OVERVIEW</div><h1>Good morning, Dr. Verma</h1><p>Here’s what needs your attention today.</p></div>
+            <button class="btn btn-primary"><i class="bi bi-download me-2"></i>Export report</button>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-people-fill"></i></div><div><small>Total patients</small><h3>128</h3><span class="positive"><i class="bi bi-arrow-up"></i> 8% this month</span></div></div>
+            <div class="stat-card"><div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div><div><small>Stable patients</small><h3>104</h3><span class="positive">81.3% of patients</span></div></div>
+            <div class="stat-card"><div class="stat-icon red"><i class="bi bi-exclamation-triangle-fill"></i></div><div><small>Needs attention</small><h3>24</h3><span class="danger-text">6 new today</span></div></div>
+            <div class="stat-card"><div class="stat-icon purple"><i class="bi bi-calendar2-check-fill"></i></div><div><small>Today's visits</small><h3>12</h3><span class="muted">4 remaining</span></div></div>
+          </div>
+
+          <div class="content-grid doctor-grid">
+            <div class="panel patient-panel">
+              <div class="panel-header">
+                <div><h4>My patients</h4><p>Click a patient to view complete history</p></div>
+                <div class="d-flex gap-2"><div class="search-box"><i class="bi bi-search"></i><input id="patientSearch" placeholder="Search patient"></div><button class="filter-btn"><i class="bi bi-funnel"></i></button></div>
+              </div>
+              <div class="health-legend"><span><i class="flag green-flag"></i> Stable</span><span><i class="flag red-flag"></i> Needs attention</span></div>
+              <div class="table-responsive">
+                <table class="table align-middle patient-table">
+                  <thead><tr><th>S.No.</th><th>Patient</th><th>Age / Gender</th><th>Last visit</th><th>Condition</th><th>Status</th><th></th></tr></thead>
+                  <tbody id="patientTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel attention-panel">
+              <div class="panel-header"><div><h4>Attention required</h4><p>Patients with red health flags</p></div><span class="count-badge">4</span></div>
+              <div id="attentionList"></div>
+              <button class="btn btn-outline-primary w-100 mt-3" onclick="showDoctorPage('patients')">View all patients</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PATIENT DETAIL -->
+        <div id="patientDetail" class="page">
+          <button class="back-link" onclick="showDoctorPage('dashboard')"><i class="bi bi-arrow-left"></i> Back to patients</button>
+          <div class="page-heading compact">
+            <div><div class="eyebrow">PATIENT PROFILE</div><h1 id="detailName">Ravi Kumar</h1><p id="detailMeta">45 years • Male • Patient ID: JS-00124</p></div>
+            <span id="detailStatus" class="status-pill stable"><i class="bi bi-check-circle-fill"></i> Stable</span>
+          </div>
+          <div class="profile-banner">
+            <div class="avatar avatar-xl" id="detailAvatar">RK</div>
+            <div class="profile-main"><h3 id="profileName">Ravi Kumar</h3><div class="profile-tags"><span><i class="bi bi-droplet-fill"></i> B+</span><span><i class="bi bi-shield-exclamation"></i> No known allergies</span><span><i class="bi bi-calendar3"></i> Last visit: 12 May 2026</span></div></div>
+            <button class="btn btn-primary"><i class="bi bi-chat-dots me-2"></i>Contact patient</button>
+          </div>
+          <div class="tabs" id="detailTabs">
+            <button class="tab active" data-detail-tab="summary">Summary</button><button class="tab" data-detail-tab="visits">Past visits</button><button class="tab" data-detail-tab="reports">Reports</button><button class="tab" data-detail-tab="prescriptions">Prescriptions</button>
+          </div>
+          <div class="detail-content" id="detailContent"></div>
+        </div>
+
+        <!-- ALL PATIENTS -->
+        <div id="allPatients" class="page">
+          <div class="page-heading"><div><div class="eyebrow">PATIENT DIRECTORY</div><h1>All patients</h1><p>Manage and review your assigned patients.</p></div></div>
+          <div class="panel"><div class="panel-header"><div><h4>Patient list</h4><p>Sorted by serial number</p></div><div class="search-box"><i class="bi bi-search"></i><input id="allPatientSearch" placeholder="Search by name or ID"></div></div><div class="table-responsive"><table class="table align-middle patient-table"><thead><tr><th>S.No.</th><th>Patient</th><th>Age / Gender</th><th>Last visit</th><th>Condition</th><th>Status</th><th></th></tr></thead><tbody id="allPatientBody"></tbody></table></div></div>
+        </div>
+
+        <!-- DOCTOR REPORTS -->
+        <div id="doctorReports" class="page">
+          <div class="page-heading"><div><div class="eyebrow">REPORTS</div><h1>Clinical reports</h1><p>Quick access to recent patient reports.</p></div></div>
+          <div class="report-grid">
+            <div class="report-card"><i class="bi bi-file-earmark-pdf-fill"></i><div><strong>Blood test report</strong><small>Ravi Kumar • 12 May 2026</small></div><button class="icon-btn"><i class="bi bi-eye"></i></button></div>
+            <div class="report-card"><i class="bi bi-file-earmark-image-fill"></i><div><strong>Chest X-Ray</strong><small>Sneha Sharma • 10 May 2026</small></div><button class="icon-btn"><i class="bi bi-eye"></i></button></div>
+            <div class="report-card"><i class="bi bi-file-earmark-pdf-fill"></i><div><strong>ECG report</strong><small>Amit Singh • 09 May 2026</small></div><button class="icon-btn"><i class="bi bi-eye"></i></button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PATIENT PAGES -->
+      <div id="patientPages" class="page-stack d-none">
+        <div id="patientHome" class="page active-page">
+          <div class="page-heading">
+            <div><div class="eyebrow">MY HEALTH SPACE</div><h1>Hello, Ravi 👋</h1><p>Let’s keep your health record up to date.</p></div>
+            <div class="verified-chip"><i class="bi bi-patch-check-fill"></i> Profile verified</div>
+          </div>
+          <div class="patient-hero">
+            <div><div class="ai-orb"><i class="bi bi-robot"></i></div></div>
+            <div class="ai-hero-copy"><span class="ai-label"><i class="bi bi-stars"></i> JARVIS HEALTH ASSISTANT</span><h2>How are you feeling today?</h2><p>Answer a few simple questions about your symptoms. JARVIS will organize your information for your doctor. <strong>This is not a medical diagnosis.</strong></p><button class="btn btn-ai" onclick="startConsultation()"><i class="bi bi-play-fill me-2"></i>Start health check</button></div>
+            <div class="ai-hero-side"><div><i class="bi bi-clock-history"></i><span>~3 min</span><small>Typical time</small></div><div><i class="bi bi-lock-fill"></i><span>Private</span><small>Demo storage</small></div></div>
+          </div>
+          <div class="patient-cards">
+            <div class="panel quick-panel"><div class="panel-header"><div><h4>Health snapshot</h4><p>From your latest record</p></div><button class="link-btn">View history <i class="bi bi-arrow-right"></i></button></div><div class="snapshot-grid"><div><span>Blood group</span><strong>B+</strong></div><div><span>Last check-up</span><strong>12 May 2026</strong></div><div><span>Known allergies</span><strong>None</strong></div><div><span>Active medicines</span><strong>2</strong></div></div></div>
+            <div class="panel upload-mini"><div class="upload-icon"><i class="bi bi-cloud-arrow-up-fill"></i></div><div><h4>Medical documents</h4><p>Store prescriptions, reports and scans.</p><button class="btn btn-outline-primary btn-sm" onclick="showPatientPage('documents')">Manage documents</button></div></div>
+          </div>
+          <div class="panel recent-consult"><div class="panel-header"><div><h4>Recent consultations</h4><p>Your latest health check-ins</p></div><button class="link-btn" onclick="showPatientPage('history')">View all <i class="bi bi-arrow-right"></i></button></div><div id="recentConsultations"></div></div>
+        </div>
+
+        <div id="consultationPage" class="page">
+          <button class="back-link" onclick="showPatientPage('home')"><i class="bi bi-arrow-left"></i> Exit health check</button>
+          <div class="consult-layout">
+            <div class="consult-intro"><div class="ai-orb large"><i class="bi bi-robot"></i></div><span class="ai-label"><i class="bi bi-stars"></i> JARVIS</span><h1>Let’s understand your symptoms.</h1><p>I’ll ask a few questions and organize your answers for your healthcare provider.</p><div class="disclaimer"><i class="bi bi-info-circle"></i><span>JARVIS is a frontend prototype. It does not provide a medical diagnosis or replace a doctor.</span></div></div>
+            <div class="question-card">
+              <div class="progress-top"><span id="questionCounter">Question 1 of 5</span><span id="progressPercent">20%</span></div>
+              <div class="progress mb-4"><div id="questionProgress" class="progress-bar" style="width:20%"></div></div>
+              <div id="questionArea"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="documentsPage" class="page">
+          <div class="page-heading"><div><div class="eyebrow">MY RECORDS</div><h1>Medical documents</h1><p>Keep your important health files organized.</p></div><button class="btn btn-primary" onclick="document.getElementById('fileInput').click()"><i class="bi bi-upload me-2"></i>Upload document</button></div>
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"><input id="fileInput" type="file" hidden multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"><div class="upload-cloud"><i class="bi bi-cloud-arrow-up"></i></div><h3>Drop files here or click to browse</h3><p>PDF, JPG, PNG, DOC or DOCX • Max 10 MB per file</p></div>
+          <div class="panel"><div class="panel-header"><div><h4>Uploaded files</h4><p>Stored locally for this frontend demo</p></div><span class="count-badge" id="docCount">4</span></div><div id="documentsList"></div></div>
+        </div>
+
+        <div id="historyPage" class="page">
+          <div class="page-heading"><div><div class="eyebrow">HEALTH HISTORY</div><h1>Consultation history</h1><p>Your previous AI-assisted check-ins.</p></div></div>
+          <div class="timeline" id="historyList"></div>
+        </div>
+
+        <div id="patientProfile" class="page">
+          <div class="page-heading"><div><div class="eyebrow">ACCOUNT</div><h1>My profile</h1><p>Basic details linked to your demo account.</p></div></div>
+          <div class="profile-form panel">
+            <div class="profile-edit-head"><div class="avatar avatar-xl">RK</div><div><h3>Ravi Kumar</h3><p>Patient ID: JS-00124</p></div><span class="status-pill stable"><i class="bi bi-patch-check-fill"></i> Verified</span></div>
+            <div class="row g-4 mt-2"><div class="col-md-6"><label class="form-label">Full name</label><input class="form-control" value="Ravi Kumar"></div><div class="col-md-3"><label class="form-label">Age</label><input class="form-control" value="45"></div><div class="col-md-3"><label class="form-label">Gender</label><select class="form-select"><option>Male</option><option>Female</option><option>Other</option></select></div><div class="col-md-6"><label class="form-label">Blood group</label><select class="form-select"><option>B+</option><option>A+</option><option>O+</option></select></div><div class="col-md-6"><label class="form-label">Known allergies</label><input class="form-control" value="None"></div></div>
+            <button class="btn btn-primary mt-4" onclick="showToast('Profile changes saved in demo storage.')">Save changes</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- Patient detail modal -->
+  <div class="modal fade" id="patientModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+      <div class="modal-header"><div><span class="eyebrow">PATIENT DETAILS</span><h4 class="modal-title" id="modalPatientName">Patient</h4></div><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="modalPatientBody"></div>
+    </div></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

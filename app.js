@@ -40,6 +40,20 @@ let verifiedCredential = "";
 let activeQuestions = [];
 let currentConcern = "";
 
+// ---- Backend bridge (defined in api.js) --------------------------------
+// When the JeevanSetu server is reachable, data flows through the REST API;
+// otherwise every helper degrades to the original localStorage demo mode.
+const BE = window.Backend || {
+  available: false, ensure: async () => false,
+  req: async () => ({ ok: false, status: 0, data: null }),
+  setUser() {}, clear() {}
+};
+let detailExtras = null; // filled from GET /api/patients/:id when a doctor opens a record
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 const LANGUAGES = {
   en:{name:"English", speech:"en-IN"}, hi:{name:"हिन्दी", speech:"hi-IN"}, bn:{name:"বাংলা", speech:"bn-IN"},
   te:{name:"తెలుగు", speech:"te-IN"}, mr:{name:"मराठी", speech:"mr-IN"}, ta:{name:"தமிழ்", speech:"ta-IN"},
@@ -162,19 +176,35 @@ function showToast(message){
   wrap.appendChild(el); setTimeout(()=>el.remove(),3200);
 }
 
-function login(){
+async function login(){
   const value=qs("#aadhaarInput").value.trim();
-  const valid=authMethod==="aadhaar" ? value.replace(/\D/g,"").length===12 : /^[A-Za-z0-9._-]{4,64}$/.test(value);
+  const valid=authMethod==="aadhaar" ? value.replace(/\D/g,"").length===12 : /^[A-Za-z0-9._@-]{4,64}$/.test(value);
   if(!valid){showToast(authMethod==="aadhaar"?"Enter any 12-digit demo Aadhaar number.":"Enter a valid demo ABHA Address."); return}
+  if(await BE.ensure()){
+    const chk=await BE.checkIdentifier(value,authMethod);
+    if(chk&&!chk.exists){showToast("No account found for this ID. Try the demo login ravi.kumar@abha, or register.");return}
+  }
   currentRole=qsa(".role-btn").find(b=>b.classList.contains("active")).dataset.role;
   authVerified=true; verifiedCredential=value;
   qs("#verifiedIdentity").textContent=(authMethod==="aadhaar"?"Aadhaar":"ABHA Address")+" verified • "+(authMethod==="aadhaar"?"•••• "+value.replace(/\D/g,"").slice(-4):value);
   qs("#aadhaarInput").disabled=true; qs("#loginBtn").classList.add("d-none"); qs("#passwordStep").classList.remove("d-none"); qs("#passwordBackBtn").classList.remove("d-none"); qs("#signupPrompt").classList.add("d-none"); qs("#passwordInput").focus();
 }
-function completePasswordLogin(){
+async function completePasswordLogin(){
   if(!authVerified){return login()}
   const password=qs("#passwordInput").value.trim();
   if(!password){showToast("Enter your password / PIN to continue.");return}
+  if(await BE.ensure()){
+    const r=await BE.login(qs("#aadhaarInput").value.trim(),password,authMethod);
+    if(r.ok&&r.data&&r.data.token){
+      currentRole=r.data.user.role;
+      qsa(".role-btn").forEach(b=>b.classList.toggle("active",b.dataset.role===currentRole));
+    } else if(r.status===401){
+      showToast((r.data&&r.data.error)||"Incorrect password. Please try again.");return;
+    } else if(r.status!==0){
+      showToast((r.data&&r.data.error)||"Login failed. Please try again.");return;
+    }
+    // r.status===0 means the backend dropped mid-session — fall through to demo mode below.
+  }
   qs("#loginView").classList.add("d-none"); qs("#appView").classList.remove("d-none");
   history.pushState({screen:"app",role:currentRole,page:currentRole==="doctor"?"dashboard":"home"},"",location.href);
   setupRole();
@@ -188,18 +218,29 @@ function openRegistration(){
 function closeRegistration(){
   qs("#registrationPanel").classList.add("d-none"); qs("#loginCard").classList.remove("registration-open");
 }
-function registerUser(e){
+async function registerUser(e){
   e.preventDefault();
   const identity=qs("#regIdentity").value.trim(); const method=qs("#regAuthMethod").value;
-  const validIdentity=method==="aadhaar" ? identity.replace(/\D/g,"").length===12 : /^[A-Za-z0-9._-]{4,64}$/.test(identity);
+  const validIdentity=method==="aadhaar" ? identity.replace(/\D/g,"").length===12 : /^[A-Za-z0-9._@-]{4,64}$/.test(identity);
   const mobile=qs("#regMobile").value.replace(/\D/g,"");
   const p1=qs("#regPassword").value, p2=qs("#regPassword2").value;
   if(!validIdentity){showToast(method==="aadhaar"?"Enter a valid 12-digit demo Aadhaar.":"Enter a valid demo ABHA Address.");return}
   if(mobile.length!==10){showToast("Enter a valid 10-digit mobile number.");return}
-  if(p1.length<4 || p1!==p2){showToast("Passwords must match and contain at least 4 characters.");return}
-  const user={name:qs("#regName").value.trim(),dob:qs("#regDob").value,gender:qs("#regGender").value,mobile,location:qs("#regLocation").value.trim(),blood:qs("#regBlood").value,height:qs("#regHeight").value,weight:qs("#regWeight").value,emergency:qs("#regEmergency").value.trim(),conditions:qs("#regConditions").value.trim()||"None",allergies:qs("#regAllergies").value.trim()||"None",identityMethod:method,identity, password:p1, id:"JS-"+String(Math.floor(10000+Math.random()*89999))};
-  localStorage.setItem("js_registered_user",JSON.stringify(user));
-  showToast("Account created. Your JeevanSetu ID is "+user.id);
+  if(p1.length<6 || p1!==p2){showToast("Passwords must match and contain at least 6 characters.");return}
+  if(await BE.ensure()){
+    const payload={name:qs("#regName").value.trim(),dob:qs("#regDob").value,gender:qs("#regGender").value,mobile,location:qs("#regLocation").value.trim(),blood:qs("#regBlood").value,height:qs("#regHeight").value,weight:qs("#regWeight").value,emergency:qs("#regEmergency").value.trim(),conditions:qs("#regConditions").value.trim()||"None",allergies:qs("#regAllergies").value.trim()||"None",identityMethod:method,identity,password:p1};
+    const r=await BE.register(payload);
+    if(r.ok&&r.data&&r.data.user){
+      BE.setUser(r.data.user,r.data.token);
+      showToast("Account created. Your JeevanSetu ID is "+r.data.user.id);
+    } else {
+      showToast((r.data&&r.data.error)||"Registration failed. Please try again.");return;
+    }
+  } else {
+    const user={name:qs("#regName").value.trim(),dob:qs("#regDob").value,gender:qs("#regGender").value,mobile,location:qs("#regLocation").value.trim(),blood:qs("#regBlood").value,height:qs("#regHeight").value,weight:qs("#regWeight").value,emergency:qs("#regEmergency").value.trim(),conditions:qs("#regConditions").value.trim()||"None",allergies:qs("#regAllergies").value.trim()||"None",identityMethod:method,identity, password:p1, id:"JS-"+String(Math.floor(10000+Math.random()*89999))};
+    localStorage.setItem("js_registered_user",JSON.stringify(user));
+    showToast("Account created (demo storage). Your JeevanSetu ID is "+user.id);
+  }
   closeRegistration(); qs("#aadhaarInput").value=identity; authMethod=method; qsa(".auth-method").forEach(b=>b.classList.toggle("active",b.dataset.auth===method)); qs("#authLabel").textContent=method==="abha"?"ABHA Address":"Aadhaar number"; qs("#authInputIcon").className=method==="abha"?"bi bi-heart-pulse":"bi bi-fingerprint"; resetAuthStep();
   qs("#signupPrompt").classList.remove("d-none");
 }
@@ -212,10 +253,14 @@ function setupRole(){
   qs("#patientWellnessNav").classList.toggle("d-none",isDoctor);
   qs("#wellnessPanel").classList.add("d-none");
   qs("#sidebarRole").innerHTML=isDoctor?'<i class="bi bi-person-badge"></i> Doctor portal':'<i class="bi bi-person"></i> Patient portal';
-  qs("#sidebarUser").textContent=isDoctor?"Dr. Anil Verma":"Ravi Kumar";
-  qs("#topName").textContent=isDoctor?"Dr. Anil Verma":"Ravi Kumar";
+  const beUser=BE.user||null;
+  const displayName=isDoctor
+    ?((beUser&&beUser.role==="doctor"&&beUser.name)||"Dr. Anil Verma")
+    :((beUser&&beUser.role==="patient"&&beUser.name)||"Ravi Kumar");
+  qs("#sidebarUser").textContent=displayName;
+  qs("#topName").textContent=displayName;
   qs("#topRole").textContent=isDoctor?"Doctor":"Patient";
-  qs("#topAvatar").textContent=isDoctor?"AV":"RK";
+  qs("#topAvatar").textContent=initials(displayName);
   qs("#sidebarNav").innerHTML=isDoctor?`
     <button class="nav-item-btn active" data-page="dashboard"><i class="bi bi-grid-1x2-fill"></i> Dashboard</button>
     <button class="nav-item-btn" data-page="patients"><i class="bi bi-people-fill"></i> My patients</button>
@@ -228,8 +273,44 @@ function setupRole(){
     <button class="nav-item-btn" data-page="profile"><i class="bi bi-person-circle"></i> Profile</button>
   `;
   qsa(".nav-item-btn").forEach(btn=>btn.onclick=()=>{ if(isDoctor) showDoctorPage(btn.dataset.page); else showPatientPage(btn.dataset.page); });
-  if(isDoctor){renderPatients(); renderAttention(); showDoctorPage("dashboard",true)}
-  else {renderDocuments(); renderHistory(); renderRecent(); showPatientPage("home",true)}
+  if(isDoctor){renderPatients(); renderAttention(); showDoctorPage("dashboard",true); hydrateDoctorData()}
+  else {renderDocuments(); renderHistory(); renderRecent(); showPatientPage("home",true); hydratePatientData(displayName)}
+}
+
+/* ---- Backend hydration: replace demo data with live API data when available ---- */
+async function hydrateDoctorData(){
+  if(!await BE.ensure())return;
+  const r=await BE.listPatients();
+  if(r.ok&&Array.isArray(r.data)){
+    patients.length=0; patients.push(...r.data);
+    renderPatients(); renderAttention();
+  }
+}
+async function hydratePatientData(name){
+  if(!await BE.ensure())return;
+  const r=await BE.me();
+  if(r.ok&&r.data&&r.data.profile){
+    const p=r.data.profile;
+    if(qs("#profileName"))qs("#profileName").textContent=p.name||name;
+    if(qs("#profileHeadName"))qs("#profileHeadName").textContent=p.name||name;
+    if(qs("#pfAvatar"))qs("#pfAvatar").textContent=initials(p.name||name);
+    if(qs("#pfId"))qs("#pfId").textContent=p.id||"";
+    if(qs("#pfName"))qs("#pfName").value=p.name||"";
+    if(qs("#pfAge"))qs("#pfAge").value=p.age!=null?p.age:"";
+    if(qs("#pfGender"))qs("#pfGender").value=p.gender||"Other";
+    if(qs("#pfBlood"))qs("#pfBlood").value=p.blood_group||"B+";
+    if(qs("#pfAllergies"))qs("#pfAllergies").value=p.allergies||"None";
+  }
+}
+async function saveProfile(){
+  const body={name:qs("#pfName").value.trim(),age:qs("#pfAge").value?parseInt(qs("#pfAge").value,10):null,gender:qs("#pfGender").value,blood_group:qs("#pfBlood").value,allergies:qs("#pfAllergies").value.trim()||"None"};
+  if(await BE.ensure()){
+    const r=await BE.updateProfile(body);
+    if(r.ok){showToast("Profile changes saved to your health record.");if(r.data&&r.data.user&&qs("#profileName"))qs("#profileName").textContent=r.data.user.name||body.name;}
+    else showToast((r.data&&r.data.error)||"Could not save profile — backend error.");
+    return;
+  }
+  showToast("Profile changes saved in demo storage.");
 }
 
 function recordNavigation(role,page){
@@ -289,13 +370,24 @@ function renderDetail(tab="summary"){
   const p=selectedPatient;
   if(tab==="summary"){
     qs("#detailContent").innerHTML=`<div class="row g-3"><div class="col-md-4"><div class="panel"><small class="text-muted">Blood group</small><h5>${p.blood}</h5></div></div><div class="col-md-4"><div class="panel"><small class="text-muted">Allergies</small><h5>${p.allergies}</h5></div></div><div class="col-md-4"><div class="panel"><small class="text-muted">Medication</small><h5>${p.meds}</h5></div></div></div><div class="panel mt-3"><h5 class="mb-3">Recent clinical history</h5>${p.history.map(h=>`<div class="history-row"><div class="date-box"><strong>${h[0].split(" ")[0]}</strong><small>${h[0].split(" ")[1]} ${h[0].split(" ")[2]}</small></div><div><h5>${h[1]}</h5><p>${h[2]} • ${h[3]}</p></div></div>`).join("")}</div>`;
+  } else if(tab==="reports"&&detailExtras){
+    const cons=(detailExtras.consultations||[]).map(c=>`<div class="history-row"><div class="date-box"><strong>${escapeHtml(c.date)}</strong><small>JARVIS check</small></div><div><h5>${escapeHtml(c.concern||"Health check-in")}</h5><p>${escapeHtml((c.answers||[]).length+" answers")} • ${escapeHtml(c.language||"en")}${(c.categories||[]).length?" • "+escapeHtml(c.categories.join(", ")):""}</p></div><span class="status-pill stable"><i class="bi bi-check-circle-fill"></i>Saved</span></div>`).join("");
+    const docs=(detailExtras.documents||[]).map(d=>`<div class="history-row"><div class="date-box"><strong>${escapeHtml(d.date)}</strong><small>${escapeHtml(d.size||"")}</small></div><div><h5>${escapeHtml(d.name)}</h5><p>${d.hasFile?"Stored on server":"Demo record (no file)"}</p></div><button class="icon-btn ms-auto" onclick="showToast('Preview is frontend-only in this prototype.')"><i class="bi bi-eye"></i></button></div>`).join("");
+    qs("#detailContent").innerHTML=`<div class="panel"><h5>JARVIS consultations</h5>${cons||'<p class="text-muted small mt-2">No consultations recorded yet.</p>'}</div><div class="panel mt-3"><h5>Documents</h5>${docs||'<p class="text-muted small mt-2">No documents uploaded.</p>'}</div>`;
   } else {
     const labels={visits:"Past visits",reports:"Reports",prescriptions:"Prescriptions"};
-    qs("#detailContent").innerHTML=`<div class="panel"><h5>${labels[tab]}</h5><p class="text-muted small mt-2">Frontend demo data for ${p.name}. This section is ready to connect to your backend/database.</p>${p.history.map(h=>`<div class="history-row"><div class="date-box"><strong>${h[0].split(" ")[0]}</strong><small>${h[0].split(" ")[1]}</small></div><div><h5>${h[1]}</h5><p>${h[2]} • ${h[3]}</p></div><button class="icon-btn ms-auto"><i class="bi bi-eye"></i></button></div>`).join("")}</div>`;
+    qs("#detailContent").innerHTML=`<div class="panel"><h5>${labels[tab]}</h5><p class="text-muted small mt-2">Frontend demo data for ${escapeHtml(p.name)}. This section is ready to connect to your backend/database.</p>${p.history.map(h=>`<div class="history-row"><div class="date-box"><strong>${h[0].split(" ")[0]}</strong><small>${h[0].split(" ")[1]}</small></div><div><h5>${escapeHtml(h[1])}</h5><p>${escapeHtml(h[2])} • ${escapeHtml(h[3])}</p></div><button class="icon-btn ms-auto"><i class="bi bi-eye"></i></button></div>`).join("")}</div>`;
   }
 }
-function showPatientDetail(id){
+async function showPatientDetail(id){
   selectedPatient=patients.find(p=>p.id===id)||patients[0];
+  if(await BE.ensure()){
+    const r=await BE.patientDetail(id);
+    if(r.ok&&r.data&&r.data.patient){
+      selectedPatient={...selectedPatient,...r.data.patient};
+      detailExtras=r.data; // consultations + documents for the Reports tab
+    } else if(r.status===404){ showToast("Patient not found on the server."); return; }
+  } else { detailExtras=null; }
   qs("#detailName").textContent=selectedPatient.name;qs("#profileName").textContent=selectedPatient.name;
   qs("#detailMeta").textContent=`${selectedPatient.age} years • ${selectedPatient.gender} • Patient ID: ${selectedPatient.id}`;
   qs("#detailAvatar").textContent=selectedPatient.initials;
@@ -336,7 +428,7 @@ function renderQuestion(){
     html+=`<textarea id="answerInput" rows="4" placeholder="${pickText(q.placeholder||{en:"Type your answer"})}">${typeof saved==="string"?saved:""}</textarea>`;
     if(inputMode==="voice")html+=`<div class="voice-answer mt-3"><p>${lang.listen}</p><button id="voiceMic" class="voice-btn" onclick="toggleListening()"><i class="bi bi-mic-fill"></i></button><div id="voiceTranscript" class="transcript">${saved||""}</div><button class="speak-again" onclick="speakText(pickText(activeQuestions[questionIndex].q))"><i class="bi bi-volume-up me-1"></i>${lang.speakAgain}</button></div>`;
   } else if(q.type==="choice"||q.type==="multi"){
-    const selected=Array.isArray(saved)?saved:(saved?[saved]:[]);const opts=pickOptions(q.options);html+=`<div class="${q.type==="multi"?"choice-grid multi-choice-grid":"choice-grid"}">${opts.map(o=>`<button class="choice-btn ${selected.includes(o)?"selected":""}" onclick="chooseAnswer(this,${JSON.stringify(o)},${q.type==="multi"})">${o}</button>`).join("")}</div>${q.type==="multi"?`<div class="question-help mt-3">${lang.selectAll}</div>`:""}`;
+    const selected=Array.isArray(saved)?saved:(saved?[saved]:[]);const opts=pickOptions(q.options);html+=`<div class="${q.type==="multi"?"choice-grid multi-choice-grid":"choice-grid"}">${opts.map(o=>`<button class="choice-btn ${selected.includes(o)?"selected":""}" onclick='chooseAnswer(this,${JSON.stringify(o)},${q.type==="multi"})'>${o}</button>`).join("")}</div>${q.type==="multi"?`<div class="question-help mt-3">${lang.selectAll}</div>`:""}`;
     if(inputMode==="voice")html+=`<div class="voice-answer mt-3"><p>${lang.listen}</p><button id="voiceMic" class="voice-btn" onclick="toggleListening()"><i class="bi bi-mic-fill"></i></button><div id="voiceTranscript" class="transcript">${Array.isArray(saved)?saved.join(", "):saved||""}</div><button class="speak-again" onclick="speakText(pickText(activeQuestions[questionIndex].q))"><i class="bi bi-volume-up me-1"></i>${lang.speakAgain}</button></div>`;
   } else if(q.type==="upload"){
     html+=`<div class="optional-upload-box"><div class="upload-icon"><i class="bi bi-cloud-arrow-up-fill"></i></div><div><strong>${lang.optional}</strong><p>${lang.optionalHelp}</p></div><input id="jarvisFileInput" type="file" hidden multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"><button class="btn btn-outline-primary btn-sm" onclick="qs('#jarvisFileInput').click()">${lang.choose}</button><div id="jarvisFileNames" class="file-names">${saved?.length?saved.join(", "):""}</div></div><button class="skip-upload" onclick="skipCurrentQuestion()">${lang.skip}</button>`;
@@ -369,25 +461,45 @@ function saveConsultation(){
   if(window.speechSynthesis)window.speechSynthesis.cancel();showToast((T[jarvisLanguage]||T.en).saved);renderHistory();renderRecent();showPatientPage("history");
 }
 
-function renderRecent(){
-  const history=JSON.parse(localStorage.getItem("js_consultations")||"[]");
+async function fetchConsultations(){
+  if(await BE.ensure()){
+    const r=await BE.listConsultations();
+    if(r.ok&&Array.isArray(r.data))return r.data;
+  }
+  return JSON.parse(localStorage.getItem("js_consultations")||"[]");
+}
+async function renderRecent(){
+  const history=await fetchConsultations();
   const rows=history.slice(0,3);
-  qs("#recentConsultations").innerHTML=(rows.length?rows:[{date:"12 May 2026",answers:["Routine health check completed"]}]).map((h,i)=>`<div class="consult-item"><div class="consult-icon"><i class="bi bi-stars"></i></div><div><strong>JARVIS health check</strong><small>${h.date} • ${h.answers?.[0]||"Routine health check completed"}</small></div><span class="status-pill stable ms-auto"><i class="bi bi-check"></i>Saved</span></div>`).join("");
+  qs("#recentConsultations").innerHTML=(rows.length?rows:[{date:"12 May 2026",answers:["Routine health check completed"]}]).map((h,i)=>`<div class="consult-item"><div class="consult-icon"><i class="bi bi-stars"></i></div><div><strong>JARVIS health check</strong><small>${escapeHtml(h.date)} • ${escapeHtml(h.concern||h.answers?.[0]||"Routine health check completed")}</small></div><span class="status-pill stable ms-auto"><i class="bi bi-check"></i>Saved</span></div>`).join("");
 }
-function renderHistory(){
-  const history=JSON.parse(localStorage.getItem("js_consultations")||"[]");
-  qs("#historyList").innerHTML=(history.length?history:[{date:"12 May 2026",answers:["Routine health check completed","2–3 days","None of these","None","No"]}]).map(h=>`<div class="timeline-item"><div class="timeline-date"><strong>${h.date}</strong><small>JARVIS check</small></div><div class="timeline-line"><div class="timeline-dot"><i class="bi bi-stars"></i></div></div><div class="timeline-card"><strong>Health check-in completed</strong><p>${h.answers?.[0]||"Routine health check completed"}</p><span class="status-pill stable"><i class="bi bi-check-circle-fill"></i> Saved</span></div></div>`).join("");
+async function renderHistory(){
+  const history=await fetchConsultations();
+  qs("#historyList").innerHTML=(history.length?history:[{date:"12 May 2026",answers:["Routine health check completed","2–3 days","None of these","None","No"]}]).map(h=>`<div class="timeline-item"><div class="timeline-date"><strong>${escapeHtml(h.date)}</strong><small>JARVIS check</small></div><div class="timeline-line"><div class="timeline-dot"><i class="bi bi-stars"></i></div></div><div class="timeline-card"><strong>Health check-in completed</strong><p>${escapeHtml(h.concern||h.answers?.[0]||"Routine health check completed")}</p><span class="status-pill stable"><i class="bi bi-check-circle-fill"></i> Saved</span></div></div>`).join("");
 }
-function renderDocuments(){
+async function fetchDocuments(){
+  if(await BE.ensure()){
+    const r=await BE.listDocuments();
+    if(r.ok&&Array.isArray(r.data))return r.data;
+  }
   const stored=JSON.parse(localStorage.getItem("js_documents")||"[]");
-  const all=[...stored,...documents];
-  qs("#docCount").textContent=all.length;
-  qs("#documentsList").innerHTML=all.map((d,i)=>`<div class="document-row"><div class="file-icon"><i class="bi ${d.type==="image"?"bi-file-earmark-image-fill":d.type==="doc"?"bi-file-earmark-word-fill":"bi-file-earmark-pdf-fill"}"></i></div><div><strong>${d.name}</strong><small>${d.size||"Local file"} • ${d.date||"Just now"}</small></div><span class="status-pill stable"><i class="bi bi-check"></i>Available</span><button class="icon-btn" onclick="showToast('Preview is frontend-only in this prototype.')"><i class="bi bi-eye"></i></button></div>`).join("");
+  return [...stored,...documents];
 }
-function handleFiles(files){
+async function renderDocuments(){
+  const all=await fetchDocuments();
+  qs("#docCount").textContent=all.length;
+  qs("#documentsList").innerHTML=all.map(d=>`<div class="document-row"><div class="file-icon"><i class="bi ${d.type==="image"?"bi-file-earmark-image-fill":d.type==="doc"?"bi-file-earmark-word-fill":"bi-file-earmark-pdf-fill"}"></i></div><div><strong>${escapeHtml(d.name)}</strong><small>${escapeHtml(d.size||"Local file")} • ${escapeHtml(d.date||"Just now")}</small></div><span class="status-pill stable"><i class="bi bi-check"></i>Available</span><button class="icon-btn" onclick="showToast('Preview is frontend-only in this prototype.')"><i class="bi bi-eye"></i></button></div>`).join("");
+}
+async function handleFiles(files){
+  const list=[...files];if(!list.length)return;
+  if(await BE.ensure()){
+    const r=await BE.uploadFiles(list);
+    if(r.ok){showToast(`${list.length} document(s) uploaded to your health record.`);await renderDocuments();return}
+    showToast((r.data&&r.data.error)||"Upload failed — saving in demo storage instead.");
+  }
   const existing=JSON.parse(localStorage.getItem("js_documents")||"[]");
-  [...files].forEach(file=>existing.unshift({name:file.name,size:(file.size/1024/1024).toFixed(1)+" MB",date:"Just now",type:file.type.includes("image")?"image":file.name.endsWith(".doc")||file.name.endsWith(".docx")?"doc":"pdf"}));
-  localStorage.setItem("js_documents",JSON.stringify(existing));renderDocuments();showToast(`${files.length} document(s) added to demo storage.`);
+  list.forEach(file=>existing.unshift({name:file.name,size:(file.size/1024/1024).toFixed(1)+" MB",date:"Just now",type:file.type.includes("image")?"image":file.name.endsWith(".doc")||file.name.endsWith(".docx")?"doc":"pdf"}));
+  localStorage.setItem("js_documents",JSON.stringify(existing));await renderDocuments();showToast(`${list.length} document(s) added to demo storage.`);
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
@@ -398,7 +510,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   languageSelectors.forEach(sel=>{Object.entries(LANGUAGES).forEach(([key,v])=>{if(!sel.querySelector(`option[value="${key}"]`)){const o=document.createElement("option");o.value=key;o.textContent=v.name;sel.appendChild(o)}});sel.value=jarvisLanguage;sel.addEventListener("change",e=>{jarvisLanguage=e.target.value;languageSelectors.forEach(x=>x.value=jarvisLanguage);updateJarvisLanguage();if(qs("#consultationPage").classList.contains("active-page"))renderQuestion()})});
   qsa(".mode-btn").forEach(btn=>btn.addEventListener("click",()=>setInputMode(btn.dataset.mode)));
   qs("#loginBtn").onclick=login;qs("#passwordLoginBtn").onclick=completePasswordLogin;qs("#passwordBackBtn").onclick=resetAuthStep;qs("#togglePassword").onclick=()=>{const i=qs("#passwordInput");i.type=i.type==="password"?"text":"password"};qs("#passwordInput").addEventListener("keydown",e=>{if(e.key==="Enter")completePasswordLogin()});qs("#aadhaarInput").addEventListener("keydown",e=>{if(e.key==="Enter")login()});qs("#signupBtn").onclick=openRegistration;qs("#registrationClose").onclick=closeRegistration;qs("#registrationForm").addEventListener("submit",registerUser);qs("#regAuthMethod").addEventListener("change",e=>{qs("#regIdentity").placeholder=e.target.value==="abha"?"e.g. ravi@abha":"12-digit demo Aadhaar"});
-  qs("#logoutBtn").onclick=()=>{qs("#appView").classList.add("d-none");qs("#loginView").classList.remove("d-none");qs("#aadhaarInput").value="";resetAuthStep();navigationStack=[];history.replaceState({screen:"login"},"",location.href)};
+  qs("#logoutBtn").onclick=()=>{qs("#appView").classList.add("d-none");qs("#loginView").classList.remove("d-none");qs("#aadhaarInput").value="";resetAuthStep();navigationStack=[];BE.clear();history.replaceState({screen:"login"},"",location.href)};
   qs("#mobileMenuBtn").onclick=()=>qs(".sidebar").classList.toggle("open");
   qs("#patientSearch").addEventListener("input",e=>{const term=e.target.value.toLowerCase();renderPatients(patients.filter(p=>`${p.name} ${p.id}`.toLowerCase().includes(term)))});
   qs("#allPatientSearch").addEventListener("input",e=>{const term=e.target.value.toLowerCase();qs("#allPatientBody").innerHTML=patients.filter(p=>`${p.name} ${p.id}`.toLowerCase().includes(term)).map((p,i)=>patientRow(p,i)).join("")});
@@ -588,7 +700,7 @@ function renderQuestion(){
     if(inputMode==="voice")html+=`<div class="voice-answer mt-3"><p>${lang.listen}</p><div class="voice-actions"><button id="voiceMic" class="voice-btn" onclick="toggleListening()" title="Microphone"><i class="bi bi-mic-fill"></i></button><button class="speak-again" onclick="speakText(pickText(activeQuestions[questionIndex].q))"><i class="bi bi-volume-up me-1"></i>${lang.speakAgain}</button></div><div id="voiceTranscript" class="transcript">${typeof saved==="string"?saved:""}</div></div>`;
   } else if(q.type==="choice"||q.type==="multi"){
     const selected=Array.isArray(saved)?saved:(saved?[saved]:[]);const opts=pickOptions(q.options);
-    html+=`<div class="${q.type==="multi"?"choice-grid multi-choice-grid":"choice-grid"}">${opts.map(o=>`<button class="choice-btn ${selected.includes(o)?"selected":""}" onclick="chooseAnswer(this,${JSON.stringify(o)},${q.type==="multi"})">${o}</button>`).join("")}</div>${q.type==="multi"?`<div class="question-help mt-3">${lang.selectAll}</div>`:""}`;
+    html+=`<div class="${q.type==="multi"?"choice-grid multi-choice-grid":"choice-grid"}">${opts.map(o=>`<button class="choice-btn ${selected.includes(o)?"selected":""}" onclick='chooseAnswer(this,${JSON.stringify(o)},${q.type==="multi"})'>${o}</button>`).join("")}</div>${q.type==="multi"?`<div class="question-help mt-3">${lang.selectAll}</div>`:""}`;
     if(inputMode==="voice")html+=`<div class="voice-answer mt-3"><p>${lang.listen}</p><div class="voice-actions"><button id="voiceMic" class="voice-btn" onclick="toggleListening()"><i class="bi bi-mic-fill"></i></button><button class="speak-again" onclick="speakText(pickText(activeQuestions[questionIndex].q))"><i class="bi bi-volume-up me-1"></i>${lang.speakAgain}</button></div><div id="voiceTranscript" class="transcript">${Array.isArray(saved)?saved.join(", "):saved||""}</div></div>`;
   } else if(q.type==="upload"){
     html+=`<div class="optional-upload-box"><div class="upload-icon"><i class="bi bi-cloud-arrow-up-fill"></i></div><div><strong>${lang.optional}</strong><p>${lang.optionalHelp}</p></div><input id="jarvisFileInput" type="file" hidden multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"><button class="btn btn-outline-primary btn-sm" onclick="qs('#jarvisFileInput').click()">${lang.choose}</button><div id="jarvisFileNames" class="file-names">${saved?.length?saved.join(", "):""}</div></div><button class="skip-upload" onclick="skipCurrentQuestion()">${lang.skip}</button>`;
@@ -630,10 +742,17 @@ function nextQuestion(){
   if(q.type==="upload"){saveConsultation();return;}
   if(questionIndex<activeQuestions.length-1){questionIndex++;renderQuestion();}else saveConsultation();
 }
-function saveConsultation(){
+async function saveConsultation(){
   const entry={id:"C-"+Date.now(),date:new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}),language:jarvisLanguage,concern:currentConcern,answers:[...consultationAnswers],adaptiveCategories:detectCategories(currentConcern),disclaimer:"Frontend prototype — not a medical diagnosis."};
-  const history=JSON.parse(localStorage.getItem("js_consultations")||"[]");history.unshift(entry);localStorage.setItem("js_consultations",JSON.stringify(history));
-  if(window.speechSynthesis)window.speechSynthesis.cancel();if(recognition){try{recognition.stop();}catch(e){}}showToast((T[jarvisLanguage]||T.en).saved);renderHistory();renderRecent();showPatientPage("history");
+  let remote=false;
+  if(await BE.ensure()){
+    const r=await BE.saveConsultation({language:entry.language,concern:entry.concern,answers:entry.answers,categories:entry.adaptiveCategories,disclaimer:entry.disclaimer});
+    if(r.ok&&r.data){entry.id=r.data.code||entry.id;entry.date=r.data.date||entry.date;remote=true;}
+  }
+  if(!remote){
+    const history=JSON.parse(localStorage.getItem("js_consultations")||"[]");history.unshift(entry);localStorage.setItem("js_consultations",JSON.stringify(history));
+  }
+  if(window.speechSynthesis)window.speechSynthesis.cancel();if(recognition){try{recognition.stop();}catch(e){}}showToast((T[jarvisLanguage]||T.en).saved);await renderHistory();renderRecent();showPatientPage("history");
 }
 
 // Make language switching update the JARVIS intro as well as the questionnaire.

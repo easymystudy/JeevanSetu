@@ -276,9 +276,9 @@
         <div id="patientProfile" class="page">
           <div class="page-heading"><div><div class="eyebrow">ACCOUNT</div><h1>My profile</h1><p>Basic details linked to your demo account.</p></div></div>
           <div class="profile-form panel">
-            <div class="profile-edit-head"><div class="avatar avatar-xl">RK</div><div><h3>Ravi Kumar</h3><p class="important-id-text"><i class="bi bi-fingerprint"></i> Unique JeevanSetu ID: <strong>JS-00124</strong></p></div><span class="status-pill stable"><i class="bi bi-patch-check-fill"></i> Verified</span></div>
-            <div class="row g-4 mt-2"><div class="col-md-6"><label class="form-label">Full name</label><input class="form-control" value="Ravi Kumar"></div><div class="col-md-3"><label class="form-label">Age</label><input class="form-control" value="45"></div><div class="col-md-3"><label class="form-label">Gender</label><select class="form-select"><option>Male</option><option>Female</option><option>Other</option></select></div><div class="col-md-6"><label class="form-label">Blood group</label><select class="form-select"><option>B+</option><option>A+</option><option>O+</option></select></div><div class="col-md-6"><label class="form-label">Known allergies</label><input class="form-control" value="None"></div></div>
-            <button class="btn btn-primary mt-4" onclick="showToast('Profile changes saved in demo storage.')">Save changes</button>
+            <div class="profile-edit-head"><div class="avatar avatar-xl" id="pfAvatar">RK</div><div><h3 id="profileHeadName">Ravi Kumar</h3><p class="important-id-text"><i class="bi bi-fingerprint"></i> Unique JeevanSetu ID: <strong id="pfId">JS-00124</strong></p></div><span class="status-pill stable"><i class="bi bi-patch-check-fill"></i> Verified</span></div>
+            <div class="row g-4 mt-2"><div class="col-md-6"><label class="form-label">Full name</label><input class="form-control" id="pfName" value="Ravi Kumar"></div><div class="col-md-3"><label class="form-label">Age</label><input class="form-control" id="pfAge" value="45" inputmode="numeric"></div><div class="col-md-3"><label class="form-label">Gender</label><select class="form-select" id="pfGender"><option>Male</option><option>Female</option><option>Other</option></select></div><div class="col-md-6"><label class="form-label">Blood group</label><select class="form-select" id="pfBlood"><option>B+</option><option>A+</option><option>O+</option></select></div><div class="col-md-6"><label class="form-label">Known allergies</label><input class="form-control" id="pfAllergies" value="None"></div></div>
+            <button class="btn btn-primary mt-4" onclick="saveProfile()">Save changes</button>
           </div>
         </div>
       </div>
@@ -294,6 +294,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="api.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

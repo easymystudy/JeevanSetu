@@ -1,0 +1,14 @@
+# dependencies
+node_modules/
+
+# runtime data (database + uploaded files)
+server/data/
+server/uploads/
+
+# secrets / env
+.env
+.env.*
+
+# misc
+*.log
+.DS_Store

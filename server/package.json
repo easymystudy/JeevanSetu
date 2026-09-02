@@ -1,0 +1,23 @@
+{
+  "name": "jeevansetu-server",
+  "version": "1.0.0",
+  "description": "JeevanSetu backend — auth, patients, JARVIS consultations, documents, audit log (SIH prototype)",
+  "main": "server.js",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "bash test-api.sh"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2"
+  }
+}
